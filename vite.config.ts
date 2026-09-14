@@ -12,8 +12,4 @@ import { defineConfig } from 'vite'
 export default defineConfig(({ command }) => ({
   base: command === 'serve' ? '/' : (process.env.VITE_BASE_PATH ?? '/sistema-hospitalar/'),
   plugins: [react()],
-  // Permite o host público usado por Render e pelos previews do ambiente.
-  preview: {
-    allowedHosts: true,
-  },
 }))

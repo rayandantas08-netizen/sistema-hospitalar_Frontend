@@ -43,18 +43,6 @@ Esta pasta está pronta para virar um repositório independente. Passo a passo:
 6. **Pages**: Settings → Pages → Source: **GitHub Actions**.
 7. **No repositório do backend**: apagar a pasta `frontend/` (e abrir PR).
 
-## Deploy em serviços Node (Render)
-
-Este projeto é um frontend Vite e agora também possui o script `start` exigido
-por serviços que iniciam a aplicação com `npm start`:
-
-- **Build Command:** `npm run build`
-- **Start Command:** `npm start`
-
-O servidor usa automaticamente a variável `PORT` fornecida pelo serviço. Se o
-objetivo for publicar no Supabase como site estático, execute `npm run build` e
-publique a pasta `dist`; nesse caso não é necessário executar `npm start`.
-
 ## Publicação no GitHub Pages
 
 O site é publicado em **https://rayandantas08-netizen.github.io/sistema-hospitalar/**, ou seja,
