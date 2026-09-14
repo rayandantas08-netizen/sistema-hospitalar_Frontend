@@ -39,8 +39,17 @@ const extraAllowedHosts = (process.env.ALLOWED_HOSTS ?? '')
 
 const allowedHosts = [RENDER_HOST, ...extraAllowedHosts]
 
+// Se VITE_BASE_PATH for definido, usa-o.
+// Caso contrário:
+// - No GitHub Actions (deploy no Pages): default '/sistema-hospitalar/'
+// - No Render, preview local ou qualquer deploy na raiz de domínio: default '/'
+const defaultBase =
+  process.env.GITHUB_ACTIONS && !process.env.RENDER
+    ? '/sistema-hospitalar/'
+    : '/'
+
 export default defineConfig(({ command }) => ({
-  base: command === 'serve' ? '/' : (process.env.VITE_BASE_PATH ?? '/sistema-hospitalar/'),
+  base: command === 'serve' ? '/' : (process.env.VITE_BASE_PATH ?? defaultBase),
   plugins: [react()],
   server: {
     // Render injeta a porta a escutar; `host: true` => 0.0.0.0, exigido pelo proxy.
