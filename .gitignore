@@ -1,0 +1,24 @@
+# Dependências e artefatos de build — não versionar
+node_modules
+dist
+dist-ssr
+
+# Builds do TypeScript (tsc -b)
+*.tsbuildinfo
+
+# Variáveis de ambiente locais (VITE_* é embutido no bundle pelo Vite)
+.env
+.env.*
+!.env.example
+
+# Logs e caches
+*.local
+npm-debug.log*
+yarn-error.log*
+.DS_Store
+coverage
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea

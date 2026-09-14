@@ -8,8 +8,48 @@ import { defineConfig } from 'vite'
 //
 // Em `npm run dev` mantemos '/' para continuar acessando em http://localhost:5173/
 // Para trocar o caminho publicado, defina a variável de ambiente VITE_BASE_PATH.
+//
+// ATENÇÃO no Render (e em qualquer host na raiz do domínio): o padrão abaixo é
+// '/sistema-hospitalar/', que só serve para o subdiretório do GitHub Pages. Num
+// domínio próprio o site fica em branco (os <script src="/sistema-hospitalar/assets/...">
+// dão 404) e o BrowserRouter ganha basename errado, então rotas como
+// /redefinir-senha não casam. No Render defina VITE_BASE_PATH=/ ANTES do build —
+// o Vite embute o valor no bundle, não há runtime para reler depois.
 // https://vite.dev/config/
+//
+// allowedHosts: o `vite preview`/`vite` recusam o Host header que não conheçam
+// ("Blocked request. This host is not allowed"), o que quebra o deploy atrás de
+// um proxy/domínio próprio como o do Render.
+//
+// Usamos o hostname EXATO do serviço. Não usar `true` (aceita qualquer host e
+// reabre o buraco de DNS rebinding) nem `'.onrender.com'` (qualquer pessoa cria
+// subdomínio nesse domínio e passa a conseguir ler o bundle).
+//
+// `preview.allowedHosts` herda de `server.allowedHosts`
+// (node_modules/vite/dist/node/chunks/node.js: `preview?.allowedHosts ?? server.allowedHosts`),
+// então não é preciso repetir em `preview`.
+const RENDER_HOST = 'sistema-hospitalar-frontend-ju62.onrender.com'
+
+// Hosts extras, vindos do ambiente — útil para previews temporários sem
+// precisar commitar um curinga no repositório. Ex.: ALLOWED_HOSTS="a.dev,b.dev"
+const extraAllowedHosts = (process.env.ALLOWED_HOSTS ?? '')
+  .split(',')
+  .map((host) => host.trim())
+  .filter(Boolean)
+
+const allowedHosts = [RENDER_HOST, ...extraAllowedHosts]
+
 export default defineConfig(({ command }) => ({
   base: command === 'serve' ? '/' : (process.env.VITE_BASE_PATH ?? '/sistema-hospitalar/'),
   plugins: [react()],
+  server: {
+    // Render injeta a porta a escutar; `host: true` => 0.0.0.0, exigido pelo proxy.
+    host: true,
+    port: Number(process.env.PORT) || 5173,
+    allowedHosts,
+  },
+  preview: {
+    host: true,
+    port: Number(process.env.PORT) || 4173,
+  },
 }))
