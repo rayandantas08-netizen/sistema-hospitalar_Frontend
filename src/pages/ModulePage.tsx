@@ -88,7 +88,7 @@ function UnitsPage() {
 
   useEffect(() => {
     if (!token) return;
-    apiFetch<any[]>('/unidades', {}, token)
+    apiFetch<any[]>('/unidades-saude', {}, token)
       .then((data) => setUnits(Array.isArray(data) ? data : []))
       .catch(() => setUnits([]))
       .finally(() => setLoading(false));
