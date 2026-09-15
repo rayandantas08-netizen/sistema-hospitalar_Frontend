@@ -62,6 +62,21 @@ export default defineConfig(({ command }) => ({
     host: true,
     port: Number(process.env.PORT) || 5173,
     allowedHosts,
+    // Proxy de desenvolvimento: o navegador chama caminhos relativos /api/...
+    // (VITE_API_URL=/api em .env.development) e o Vite repassa para o backend.
+    // Assim não há CORS em dev e o preview remoto funciona — o navegador nunca
+    // fala com localhost direto (importante quando o dev server roda num
+    // sandbox remoto). `ws: true` cobre o WebSocket do painel de TV
+    // (/api/chamadas/ws) e o SSE (/api/chamadas/eventos) passa normalmente.
+    // Para usar outro backend sem rodar nada local (ex.: o deploy do Render),
+    // defina VITE_API_PROXY_TARGET antes de `npm run dev`.
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:3000',
+        changeOrigin: true,
+        ws: true,
+      },
+    },
   },
   preview: {
     host: true,
