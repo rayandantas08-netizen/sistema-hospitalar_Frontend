@@ -37,7 +37,13 @@ const extraAllowedHosts = (process.env.ALLOWED_HOSTS ?? '')
   .map((host) => host.trim())
   .filter(Boolean)
 
-const allowedHosts = [RENDER_HOST, ...extraAllowedHosts]
+const allowedHosts = [
+  RENDER_HOST,
+  '.e2b.app',
+  'localhost',
+  '127.0.0.1',
+  ...extraAllowedHosts,
+]
 
 // Se VITE_BASE_PATH for definido, usa-o.
 // Caso contrário:

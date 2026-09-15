@@ -27,13 +27,24 @@ export default function LoginPage() {
     }
   }
 
+  async function handleDemoLogin() {
+    setLoading(true);
+    setError('');
+    try {
+      await loginWithToken('demo-token');
+      navigate('/dashboard');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="auth-screen">
       <div className="auth-card">
         <div className="auth-header">
           <div className="brand-mark large">H</div>
           <h1>Hospitalar</h1>
-          <p>Gestão de pacientes, profissionais e triagem.</p>
+          <p>Gestão de pacientes, profissionais e triagem clínica.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
@@ -59,10 +70,24 @@ export default function LoginPage() {
 
           {error ? <div className="error-box">{error}</div> : null}
 
-          <button type="submit" disabled={loading}>
-            {loading ? 'Entrando...' : 'Entrar'}
+          <button type="submit" className="primary-button full-width-btn" disabled={loading}>
+            {loading ? 'Entrando...' : 'Entrar no Sistema'}
           </button>
         </form>
+
+        <div className="demo-divider">
+          <span>ou</span>
+        </div>
+
+        <button
+          type="button"
+          className="demo-button"
+          onClick={handleDemoLogin}
+          disabled={loading}
+          title="Permite testar todos os módulos, layout mobile e fluxos sem depender do backend"
+        >
+          <i className="fas fa-play-circle" /> Entrar em Modo Demonstração
+        </button>
 
         <div className="auth-footer">
           <span>Primeiro acesso?</span>

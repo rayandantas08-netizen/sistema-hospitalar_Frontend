@@ -1,0 +1,18 @@
+{
+  "short_name": "Hospitalar",
+  "name": "Hospitalar - Sistema de Gestão Hospitalar",
+  "description": "Sistema de gestão clínica, triagem com Protocolo Manchester e chamada de emergência",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f3b4c",
+  "theme_color": "#0f3b4c",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "lang": "pt-BR"
+}

@@ -24,6 +24,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      if (token === 'demo-token') {
+        setUser({
+          id: 'demo-admin-id',
+          nome: 'Dra. Roberta Martins',
+          email: 'admin@hospitalar.com',
+          papel: 'ADMINISTRADOR_PRINCIPAL',
+          unidadeSaudeId: 'unidade-central',
+          unidadeSaudeNome: 'Hospital Central de Clínicas',
+        });
+        return;
+      }
+
       try {
         const profile = await getCurrentUser(token);
         setUser(profile);
@@ -44,6 +56,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async loginWithToken(nextToken: string) {
       localStorage.setItem('hospitalar_token', nextToken);
       setToken(nextToken);
+      if (nextToken === 'demo-token') {
+        setUser({
+          id: 'demo-admin-id',
+          nome: 'Dra. Roberta Martins',
+          email: 'admin@hospitalar.com',
+          papel: 'ADMINISTRADOR_PRINCIPAL',
+          unidadeSaudeId: 'unidade-central',
+          unidadeSaudeNome: 'Hospital Central de Clínicas',
+        });
+      }
     },
     logout() {
       localStorage.removeItem('hospitalar_token');
