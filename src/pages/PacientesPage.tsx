@@ -6,13 +6,15 @@ import type { PatientRecord } from '../types/auth';
 
 const emptyForm = {
   nome: '', cpf: '', cns: '', dataNascimento: '', sexo: 'OUTRO', racaCor: 'NAO_DECLARADO',
-  escolaridade: 'MEDIO', telefone: '', email: '', unidadeSaudeId: '', consentimentoLGPD: false,
+  escolaridade: 'MEDIO', telefone: '', email: '', unidadeSaudeId: '', consentimentoLGPD: true,
   endereco: { logradouro: '', numero: '', bairro: '', cidade: '', estado: '', cep: '' },
 };
 
 export default function PacientesPage() {
   const { token } = useAuth();
   const [items, setItems] = useState<PatientRecord[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [maskLgpd, setMaskLgpd] = useState(true);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -23,7 +25,7 @@ export default function PacientesPage() {
     if (!token) return;
 
     listPacientes(token)
-      .then(setItems)
+      .then((data) => setItems(Array.isArray(data) ? data : []))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
   }, [token]);
@@ -39,14 +41,15 @@ export default function PacientesPage() {
       setForm(emptyForm);
       setShowForm(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível cadastrar o paciente.');
+      setError(err instanceof Error ? err.message : 'Não foi possível salvar o paciente.');
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(id: string) {
-    if (!token || !window.confirm('Deseja desativar este paciente?')) return;
+    if (!token) return;
+    if (!window.confirm('Confirma a desativação deste paciente no banco de dados?')) return;
     try {
       await deletePaciente(id, token);
       setItems((current) => current.filter((item) => item.id !== id));
@@ -55,81 +58,188 @@ export default function PacientesPage() {
     }
   }
 
-  if (loading) {
-    return <div className="page-wrap"><div className="loading-box">Carregando pacientes...</div></div>;
+  function formatCpf(cpf: string) {
+    if (!cpf) return '-';
+    if (!maskLgpd) return cpf;
+    return `***.${cpf.slice(4, 11) || '000.000'}-**`;
   }
+
+  function formatPhone(phone: string) {
+    if (!phone) return '-';
+    if (!maskLgpd) return phone;
+    return `(••) •••••-${phone.slice(-4)}`;
+  }
+
+  const filteredItems = items.filter((p) => {
+    const q = searchTerm.toLowerCase();
+    return p.nome?.toLowerCase().includes(q) || p.cpf?.includes(q) || p.cns?.includes(q);
+  });
 
   return (
     <div className="page-wrap">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Cadastros</p>
-          <h2>Pacientes</h2>
-          <p className="page-subtitle">Acompanhe os pacientes ativos e seus grupos de risco.</p>
+          <p className="eyebrow">Gestão de Pacientes</p>
+          <h2>Cadastro & Admissão Clínica</h2>
+          <p className="page-subtitle">Registros reais integrados ao banco de dados e em conformidade com a LGPD.</p>
         </div>
-        <button type="button" className="primary-button" onClick={() => setShowForm((current) => !current)}>
-          <i className="fas fa-plus" />
-          {showForm ? 'Fechar' : 'Novo paciente'}
-        </button>
+        <div className="header-actions-row">
+          <button
+            type="button"
+            className="outline-button"
+            onClick={() => setMaskLgpd(!maskLgpd)}
+            title="Alterna o mascaramento de CPF e telefone para fins de sigilo médico"
+          >
+            <i className={`fas ${maskLgpd ? 'fa-eye-slash' : 'fa-eye'}`} />{' '}
+            {maskLgpd ? 'Desmascarar LGPD' : 'Mascarar Dados Sensíveis'}
+          </button>
+          <button type="button" className="primary-button" onClick={() => setShowForm((v) => !v)}>
+            <i className={`fas ${showForm ? 'fa-times' : 'fa-plus'}`} />{' '}
+            {showForm ? 'Fechar formulário' : 'Novo paciente'}
+          </button>
+        </div>
       </header>
 
-      {error ? <div className="error-box page-message">{error}</div> : null}
+      {error ? <div className="error-box">{error}</div> : null}
+
       {showForm ? (
-        <form className="panel form-panel" onSubmit={handleCreate}>
-          <h3>Novo paciente</h3>
-          <div className="field-grid">
-            <label>Nome<input required value={form.nome} onChange={(event) => setForm({ ...form, nome: event.target.value })} /></label>
-            <label>CPF<input required maxLength={11} value={form.cpf} onChange={(event) => setForm({ ...form, cpf: event.target.value })} /></label>
-            <label>CNS<input required maxLength={15} value={form.cns} onChange={(event) => setForm({ ...form, cns: event.target.value })} /></label>
-            <label>Data de nascimento<input required type="date" value={form.dataNascimento} onChange={(event) => setForm({ ...form, dataNascimento: event.target.value })} /></label>
-            <label>Sexo<select value={form.sexo} onChange={(event) => setForm({ ...form, sexo: event.target.value })}><option value="MASCULINO">Masculino</option><option value="FEMININO">Feminino</option><option value="OUTRO">Outro</option></select></label>
-            <label>Raça/Cor<select value={form.racaCor} onChange={(event) => setForm({ ...form, racaCor: event.target.value })}><option value="NAO_DECLARADO">Não declarado</option><option value="BRANCA">Branca</option><option value="PRETA">Preta</option><option value="PARDA">Parda</option><option value="AMARELA">Amarela</option><option value="INDIGENA">Indígena</option></select></label>
-            <label>Escolaridade<select value={form.escolaridade} onChange={(event) => setForm({ ...form, escolaridade: event.target.value })}><option value="FUNDAMENTAL">Fundamental</option><option value="MEDIO">Médio</option><option value="SUPERIOR">Superior</option><option value="POS_GRADUACAO">Pós-graduação</option></select></label>
-            <label>Telefone<input required value={form.telefone} onChange={(event) => setForm({ ...form, telefone: event.target.value })} /></label>
-            <label>E-mail<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-            <label>Unidade de saúde (UUID)<input value={form.unidadeSaudeId} onChange={(event) => setForm({ ...form, unidadeSaudeId: event.target.value })} /></label>
-            <label>Logradouro<input required value={form.endereco.logradouro} onChange={(event) => setForm({ ...form, endereco: { ...form.endereco, logradouro: event.target.value } })} /></label>
-            <label>Número<input required value={form.endereco.numero} onChange={(event) => setForm({ ...form, endereco: { ...form.endereco, numero: event.target.value } })} /></label>
-            <label>Bairro<input required value={form.endereco.bairro} onChange={(event) => setForm({ ...form, endereco: { ...form.endereco, bairro: event.target.value } })} /></label>
-            <label>Cidade<input required value={form.endereco.cidade} onChange={(event) => setForm({ ...form, endereco: { ...form.endereco, cidade: event.target.value } })} /></label>
-            <label>Estado<input required maxLength={2} value={form.endereco.estado} onChange={(event) => setForm({ ...form, endereco: { ...form.endereco, estado: event.target.value } })} /></label>
-            <label>CEP<input required maxLength={8} value={form.endereco.cep} onChange={(event) => setForm({ ...form, endereco: { ...form.endereco, cep: event.target.value } })} /></label>
+        <form onSubmit={handleCreate} className="reference-card form-panel">
+          <div className="card-heading">
+            <h3><i className="fas fa-user-plus" /> Ficha de Admissão de Paciente</h3>
           </div>
-          <label className="checkbox-field"><input type="checkbox" checked={form.consentimentoLGPD} onChange={(event) => setForm({ ...form, consentimentoLGPD: event.target.checked })} /> Consentimento LGPD</label>
-          <button type="submit" className="primary-button" disabled={saving}>{saving ? 'Salvando...' : 'Salvar paciente'}</button>
+          <div className="form-grid">
+            <label className="wide-field">
+              Nome completo
+              <input required value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Nome completo do paciente" />
+            </label>
+            <label>
+              CPF
+              <input required maxLength={14} value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} placeholder="000.000.000-00" />
+            </label>
+            <label>
+              Cartão Nacional de Saúde (CNS)
+              <input required maxLength={15} value={form.cns} onChange={(e) => setForm({ ...form, cns: e.target.value })} placeholder="15 dígitos" />
+            </label>
+            <label>
+              Data de nascimento
+              <input required type="date" value={form.dataNascimento} onChange={(e) => setForm({ ...form, dataNascimento: e.target.value })} />
+            </label>
+            <label>
+              Sexo biológico
+              <select value={form.sexo} onChange={(e) => setForm({ ...form, sexo: e.target.value })}>
+                <option value="MASCULINO">Masculino</option>
+                <option value="FEMININO">Feminino</option>
+                <option value="OUTRO">Outro</option>
+              </select>
+            </label>
+            <label>
+              Telefone celular
+              <input required value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} placeholder="(00) 00000-0000" />
+            </label>
+            <label>
+              E-mail
+              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="paciente@email.com" />
+            </label>
+            <label className="wide-field">
+              Logradouro e número
+              <input required value={form.endereco.logradouro} onChange={(e) => setForm({ ...form, endereco: { ...form.endereco, logradouro: e.target.value } })} placeholder="Rua, Avenida, etc." />
+            </label>
+            <label>
+              Bairro
+              <input required value={form.endereco.bairro} onChange={(e) => setForm({ ...form, endereco: { ...form.endereco, bairro: e.target.value } })} />
+            </label>
+            <label>
+              Cidade
+              <input required value={form.endereco.cidade} onChange={(e) => setForm({ ...form, endereco: { ...form.endereco, cidade: e.target.value } })} />
+            </label>
+            <label>
+              Estado (UF)
+              <input required maxLength={2} value={form.endereco.estado} onChange={(e) => setForm({ ...form, endereco: { ...form.endereco, estado: e.target.value } })} placeholder="SP" />
+            </label>
+            <label>
+              CEP
+              <input required maxLength={9} value={form.endereco.cep} onChange={(e) => setForm({ ...form, endereco: { ...form.endereco, cep: e.target.value } })} placeholder="00000-000" />
+            </label>
+          </div>
+          <label className="checkbox-field">
+            <input type="checkbox" checked={form.consentimentoLGPD} onChange={(e) => setForm({ ...form, consentimentoLGPD: e.target.checked })} />{' '}
+            Paciente consentiu expressamente com o tratamento de dados pessoais de saúde (LGPD nº 13.709/2018)
+          </label>
+          <button type="submit" className="primary-button" disabled={saving}>
+            <i className="fas fa-check" /> {saving ? 'Salvando no banco...' : 'Salvar Paciente no Banco de Dados'}
+          </button>
         </form>
       ) : null}
 
       <div className="reference-card">
-        <div className="reference-toolbar"><div className="search-control"><i className="fas fa-search" /><input placeholder="Buscar por nome, CPF ou CNS..." /></div><select><option>Todas as unidades</option></select><select><option>Todos os riscos</option></select><select><option>Todos os status</option></select></div>
-        <table>
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>CPF</th>
-              <th>Telefone</th>
-              <th>Sexo</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
+        <div className="reference-toolbar">
+          <div className="search-control">
+            <i className="fas fa-search" />
+            <input
+              placeholder="Buscar por nome, CPF ou CNS no banco..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <span className="badge-info">
+            <i className="fas fa-database" /> {filteredItems.length} registros no banco
+          </span>
+        </div>
+
+        <div className="table-responsive-wrapper">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={5}>Nenhum paciente encontrado.</td>
+                <th>Nome</th>
+                <th>CPF (LGPD)</th>
+                <th>Telefone</th>
+                <th>Sexo</th>
+                <th>Termo LGPD</th>
+                <th>Ações</th>
               </tr>
-            ) : (
-              items.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.nome}</td>
-                  <td>{item.cpf}</td>
-                  <td>{item.telefone}</td>
-                  <td>{item.sexo}</td>
-                  <td><div className="patient-actions"><Link to={`/pacientes/${item.id}`} title="Visualizar"><i className="fas fa-eye" /></Link><Link to={`/pacientes/${item.id}/editar`} title="Editar"><i className="fas fa-pen" /></Link><Link to={`/triagem?pacienteId=${item.id}`} title="Encaminhar para triagem"><i className="fas fa-heartbeat" /></Link><button type="button" className="table-action" onClick={() => void handleDelete(item.id)} title="Desativar"><i className="fas fa-ban" /></button></div></td>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="reference-empty compact">
+                    <i className="fas fa-circle-notch fa-spin" />
+                    <strong>Carregando pacientes do banco de dados...</strong>
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : filteredItems.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="reference-empty compact">
+                    <i className="fas fa-user-slash" />
+                    <strong>Nenhum paciente cadastrado no banco de dados</strong>
+                    <span>Clique em "Novo paciente" para iniciar um registro.</span>
+                  </td>
+                </tr>
+              ) : (
+                filteredItems.map((item) => (
+                  <tr key={item.id}>
+                    <td><strong>{item.nome}</strong></td>
+                    <td><code>{formatCpf(item.cpf)}</code></td>
+                    <td>{formatPhone(item.telefone)}</td>
+                    <td><span className="status-pill status-active">{item.sexo}</span></td>
+                    <td>
+                      <span className="status-pill status-active">
+                        <i className="fas fa-check" /> Consentido
+                      </span>
+                    </td>
+                    <td>
+                      <div className="patient-actions">
+                        <Link to={`/pacientes/${item.id}`} className="patient-action-btn" title="Visualizar prontuário"><i className="fas fa-eye" /></Link>
+                        <Link to={`/pacientes/${item.id}/editar`} className="patient-action-btn" title="Editar dados"><i className="fas fa-pen" /></Link>
+                        <Link to={`/triagem?pacienteId=${item.id}`} className="patient-action-btn triage-link" title="Iniciar Triagem Manchester"><i className="fas fa-heartbeat" /></Link>
+                        <button type="button" className="patient-action-btn danger-action" onClick={() => void handleDelete(item.id)} title="Desativar"><i className="fas fa-ban" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

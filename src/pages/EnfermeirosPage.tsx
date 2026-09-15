@@ -66,34 +66,39 @@ export default function EnfermeirosPage() {
 
       <div className="reference-card">
         <div className="reference-toolbar"><div className="search-control"><i className="fas fa-search" /><input placeholder="Buscar por nome ou COREN..." /></div><select><option>Todas as unidades</option></select><select><option>Todos os status</option></select></div>
-        <table>
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>COREN</th>
-              <th>Telefone</th>
-              <th>E-mail</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
+        <div className="table-responsive-wrapper">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={5}>Nenhum enfermeiro encontrado.</td>
+                <th>Nome</th>
+                <th>COREN</th>
+                <th>Telefone</th>
+                <th>E-mail</th>
+                <th>Ações</th>
               </tr>
-            ) : (
-              items.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.nome}</td>
-                  <td>{item.coren || '-'}</td>
-                  <td>{item.telefone}</td>
-                  <td>{item.email || '-'}</td>
-                  <td><button type="button" className="table-action" onClick={() => void handleDelete(item.id)}>Desativar</button></td>
+            </thead>
+            <tbody>
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="reference-empty compact">
+                    <i className="fas fa-user-nurse" />
+                    <strong>Nenhum enfermeiro encontrado</strong>
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                items.map((item) => (
+                  <tr key={item.id}>
+                    <td><strong>{item.nome}</strong></td>
+                    <td><span className="badge-crm">{item.coren || '-'}</span></td>
+                    <td>{item.telefone}</td>
+                    <td>{item.email || '-'}</td>
+                    <td><button type="button" className="table-action" onClick={() => void handleDelete(item.id)}>Desativar</button></td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
