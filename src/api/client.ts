@@ -161,3 +161,18 @@ export async function apiFetch<T>(
 }
 
 export { API_BASE_URL };
+
+/**
+ * Extrai o array de uma listagem da API. A API convive com dois formatos:
+ * - legado: array puro `[...]` (ex.: /triagens sem parâmetros de paginação)
+ * - novo: envelope paginado `{ data: [...], paginacao: {...} }` (ex.: /salas)
+ * Sem este helper, telas que esperam array recebem o envelope e renderizam
+ * vazio mesmo com dados no banco — foi o bug das salas não aparecerem.
+ */
+export function extrairLista<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: unknown }).data)) {
+    return (payload as { data: T[] }).data;
+  }
+  return [];
+}
