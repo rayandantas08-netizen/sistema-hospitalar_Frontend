@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { apiFetch } from '../api/client';
+import { apiFetch, extrairLista } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
 interface HealthUnit {
@@ -36,6 +36,13 @@ export default function RoomsPage() {
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState('');
 
+  const statusLabel: Record<string, string> = {
+    LIVRE: 'Livre',
+    OCUPADA: 'Ocupada',
+    INATIVA: 'Inativa',
+    EM_MANUTENCAO: 'Em manutenção',
+  };
+
   // Fetch real units and rooms from API
   useEffect(() => {
     if (!token) return;
@@ -43,11 +50,11 @@ export default function RoomsPage() {
     setLoading(true);
     Promise.all([
       apiFetch<HealthUnit[]>('/unidades-saude', {}, token).catch(() => []),
-      apiFetch<Room[]>('/salas', {}, token).catch(() => []),
+      apiFetch('/salas?limite=200', {}, token).catch(() => []),
     ])
       .then(([dbUnits, dbRooms]) => {
-        const validUnits = Array.isArray(dbUnits) ? dbUnits : [];
-        const validRooms = Array.isArray(dbRooms) ? dbRooms : [];
+        const validUnits = extrairLista<HealthUnit>(dbUnits);
+        const validRooms = extrairLista<Room>(dbRooms);
         setUnits(validUnits);
         setRooms(validRooms);
 
@@ -197,7 +204,7 @@ export default function RoomsPage() {
                           />
                         </span>
                         <span className="status-pill status-active">
-                          {room.status || 'Ativo'}
+                          {statusLabel[room.status] || room.status || 'Ativo'}
                         </span>
                       </div>
 
@@ -260,8 +267,8 @@ export default function RoomsPage() {
               try {
                 await apiFetch('/salas', { method: 'POST', body: JSON.stringify({ unidadeSaudeId: selectedUnitId, nome: roomName, tipo: roomType, status: 'LIVRE' }) }, token);
                 setShowCreate(false); setRoomName('');
-                const updated = await apiFetch<Room[]>('/salas', {}, token);
-                setRooms(Array.isArray(updated) ? updated : []);
+                const updated = await apiFetch('/salas?limite=200', {}, token);
+                setRooms(extrairLista<Room>(updated));
               } catch (error) {
                 setCreateError(error instanceof Error ? error.message : 'Não foi possível cadastrar a sala.');
               } finally { setSaving(false); }

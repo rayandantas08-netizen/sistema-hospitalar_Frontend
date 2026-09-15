@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { apiFetch } from '../api/client';
+import { apiFetch, extrairLista } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { broadcastCall } from '../services/callService';
 
@@ -43,13 +43,14 @@ export default function CareOperationsPage() {
 
     setLoading(true);
     Promise.all([
-      apiFetch<RoomOption[]>('/salas', {}, token).catch(() => []),
+      apiFetch('/salas?limite=200', {}, token).catch(() => []),
       apiFetch<QueueItem[]>('/chamadas/fila', {}, token).catch(() => []),
     ])
       .then(([dbRooms, dbQueue]) => {
-        if (Array.isArray(dbRooms) && dbRooms.length > 0) {
-          setRooms(dbRooms);
-          setSelectedRoom(dbRooms[0].nome);
+        const roomList = extrairLista<RoomOption>(dbRooms);
+        if (roomList.length > 0) {
+          setRooms(roomList);
+          setSelectedRoom(roomList[0].nome);
         } else {
           setRooms([]);
           setSelectedRoom('');

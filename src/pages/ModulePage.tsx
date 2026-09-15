@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import { apiFetch } from '../api/client';
+import { apiFetch, extrairLista } from '../api/client';
 import { listPacientes } from '../api/pacientes';
 import { useAuth } from '../contexts/AuthContext';
 import type { PatientRecord } from '../types/auth';
@@ -248,6 +248,8 @@ function TriagePage() {
     conscious: true,
   });
   const [triagensList, setTriagensList] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [roomId, setRoomId] = useState('');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -257,8 +259,14 @@ function TriagePage() {
     apiFetch<any[]>('/unidades-saude', {}, token)
       .then((data) => setUnits(Array.isArray(data) ? data : []))
       .catch(() => setUnits([]));
-    apiFetch<any[]>('/triagens', {}, token).then((data) => setTriagensList(Array.isArray(data) ? data : [])).catch(() => setTriagensList([]));
-  }, [token]);
+    apiFetch('/triagens', {}, token).then((data) => setTriagensList(extrairLista(data))).catch(() => setTriagensList([]));
+    // Salas da unidade do usuário (fallback: todas) para o seletor da triagem.
+    // /salas devolve o envelope paginado { data, paginacao }, por isso o unwrap.
+    const salasUrl = unitId
+      ? `/salas?unidadeSaudeId=${unitId}&limite=200`
+      : '/salas?limite=200';
+    apiFetch(salasUrl, {}, token).then((data) => setRooms(extrairLista(data))).catch(() => setRooms([]));
+  }, [token, unitId]);
 
   function updateVital(field: string, value: string | boolean) {
     setVitals((cur) => ({ ...cur, [field]: value }));
@@ -336,6 +344,7 @@ function TriagePage() {
                 pacienteId: patientId,
                 enfermeiroId: user?.id,
                 unidadeSaudeId: unitId,
+                salaId: roomId || undefined,
                 queixaPrincipal: complaint,
                 nivelGravidade: manchesterCalculated.cor,
                 sinaisVitais: {
@@ -353,10 +362,14 @@ function TriagePage() {
         },
         token
       );
-      setMessage(`Triagem gravada com sucesso no banco de dados! Classificado como ${manchesterCalculated.label}.`);
+      const salaEscolhida = rooms.find((r) => r.id === roomId);
+      setMessage(
+        `Triagem gravada com sucesso no banco de dados! Classificado como ${manchesterCalculated.label}.` +
+        (salaEscolhida ? ` Sala: ${salaEscolhida.nome}.` : '')
+      );
       setComplaint('');
       // Refresh list
-      apiFetch<any[]>('/triagens', {}, token).then(setTriagensList).catch(() => {});
+      apiFetch('/triagens', {}, token).then((data) => setTriagensList(extrairLista(data))).catch(() => {});
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Não foi possível salvar a triagem.');
     } finally {
@@ -385,6 +398,24 @@ function TriagePage() {
                   </option>
                 ))}
               </select>
+            </label>
+
+            <label className="wide-field">
+              Sala da triagem
+              <select value={roomId} onChange={(e) => setRoomId(e.target.value)}>
+                <option value="">Sem sala específica...</option>
+                {rooms.map((r) => (
+                  <option value={r.id} key={r.id}>
+                    {r.nome}{r.tipo ? ` — ${r.tipo}` : ''}
+                  </option>
+                ))}
+              </select>
+              {rooms.length === 0 ? (
+                <small style={{ color: '#b45309' }}>
+                  <i className="fas fa-triangle-exclamation" /> Nenhuma sala ativa nesta unidade.
+                  Cadastre em &quot;Salas&quot; para o médico saber para onde chamar o paciente.
+                </small>
+              ) : null}
             </label>
 
             <label className="wide-field">
@@ -526,7 +557,10 @@ function TriagePage() {
                 <div className="queue-row" key={t.id}>
                   <div>
                     <strong>{t.pacienteNome || t.pacienteId}</strong>
-                    <small>Queixa: {t.queixaPrincipal} · MEWS: {t.mewsScore || '0'}</small>
+                    <small>
+                      Queixa: {t.queixaPrincipal} · MEWS: {t.mewsScore || '0'}
+                      {t.salaNome ? ` · Sala: ${t.salaNome}` : ''}
+                    </small>
                   </div>
                   <span className={`status-pill severity-${(t.classificacaoRisco || 'verde').toLowerCase()}`}>
                     {t.classificacaoRisco || 'VERDE'}
