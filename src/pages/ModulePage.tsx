@@ -233,7 +233,8 @@ function TriagePage() {
   const [searchParams] = useSearchParams();
   const [patients, setPatients] = useState<PatientRecord[]>([]);
   const [patientId, setPatientId] = useState(searchParams.get('pacienteId') || '');
-  const unitId = user?.unidadeSaudeId || '';
+  const [units, setUnits] = useState<any[]>([]);
+  const unitId = user?.unidadeSaudeId || units[0]?.id || '';
   const [complaint, setComplaint] = useState('');
   const [vitals, setVitals] = useState({
     systolic: '120',
@@ -253,6 +254,9 @@ function TriagePage() {
   useEffect(() => {
     if (!token) return;
     listPacientes(token).then(setPatients).catch(() => setPatients([]));
+    apiFetch<any[]>('/unidades-saude', {}, token)
+      .then((data) => setUnits(Array.isArray(data) ? data : []))
+      .catch(() => setUnits([]));
     apiFetch<any[]>('/triagens', {}, token).then((data) => setTriagensList(Array.isArray(data) ? data : [])).catch(() => setTriagensList([]));
   }, [token]);
 
@@ -328,13 +332,13 @@ function TriagePage() {
         '/triagens',
         {
           method: 'POST',
-          body: JSON.stringify({
-            pacienteId: patientId,
-            unidadeSaudeId: unitId,
-            queixaPrincipal: complaint,
-            classificacaoRisco: manchesterCalculated.cor,
-            mewsScore,
-            sinaisVitais: {
+              body: JSON.stringify({
+                pacienteId: patientId,
+                enfermeiroId: user?.id,
+                unidadeSaudeId: unitId,
+                queixaPrincipal: complaint,
+                nivelGravidade: manchesterCalculated.cor,
+                sinaisVitais: {
               pressaoArterialSistolica: Number(vitals.systolic),
               pressaoArterialDiastolica: Number(vitals.diastolic),
               frequenciaCardiaca: Number(vitals.heartRate),
@@ -343,8 +347,8 @@ function TriagePage() {
               saturacaoOxigenio: Number(vitals.oxygen),
               nivelDor: Number(vitals.pain),
               estadoConsciente: vitals.conscious,
-              escalaAvpu: vitals.avpu,
-            },
+                  escalaAvpu: ({ A: 'ALERTA', V: 'VOZ', P: 'DOR', U: 'IRRESPONSIVO' } as const)[vitals.avpu as 'A' | 'V' | 'P' | 'U'],
+                },
           }),
         },
         token
@@ -1197,23 +1201,43 @@ function PurchasePage({ page }: { page: 'solicitacoes' | 'fornecedores' }) {
 function CreateDialog({ page, onClose }: { page: keyof typeof modules; onClose: () => void }) {
   const { token } = useAuth();
   const title = modules[page]?.title || page;
-  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [formData, setFormData] = useState<Record<string, any>>({
+    tipo: 'HOSPITAL',
+    cnes: '',
+    endereco: { logradouro: '', numero: '', bairro: '', cidade: '', estado: '', cep: '' },
+    telefone: '',
+    servicosEssenciais: ['Atendimento clínico'],
+    servicosAmpliados: [],
+  });
   const [saving, setSaving] = useState(false);
-
+  const [error, setError] = useState('');
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    setError('');
     try {
       if (token) {
-        await apiFetch(`/${page}`, {
+        const endpoint = page === 'unidades' ? '/unidades-saude' : `/${page}`;
+        const payload = page === 'unidades'
+          ? {
+              nome: formData.nome,
+              tipo: formData.tipo,
+              cnes: formData.cnes,
+              endereco: formData.endereco,
+              telefone: formData.telefone,
+              servicosEssenciais: formData.servicosEssenciais,
+              servicosAmpliados: formData.servicosAmpliados,
+            }
+          : formData;
+        await apiFetch(endpoint, {
           method: 'POST',
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         }, token);
       }
       onClose();
       window.location.reload();
-    } catch {
-      onClose();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Não foi possível salvar o cadastro.');
     } finally {
       setSaving(false);
     }
@@ -1235,21 +1259,44 @@ function CreateDialog({ page, onClose }: { page: keyof typeof modules; onClose: 
         <form onSubmit={handleSubmit}>
           <div className="modal-field-grid">
             <label>
-              Nome / Identificador
+              Nome da unidade
               <input
                 required
-                placeholder="Informe o nome ou identificador"
+                placeholder="Ex.: Hospital Central"
                 onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
               />
             </label>
             <label>
-              Descrição ou Observações
+              Tipo
+              <select value={formData.tipo} onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}>
+                <option value="HOSPITAL">Hospital</option>
+                <option value="UPA">UPA</option>
+                <option value="UBS">UBS</option>
+                <option value="CLINICA">Clínica</option>
+              </select>
+            </label>
+            {page === 'unidades' ? (
+              <>
+                <label>CNES<input required placeholder="7 dígitos" value={formData.cnes} onChange={(e) => setFormData({ ...formData, cnes: e.target.value.replace(/\D/g, '') })} /></label>
+                <label>Telefone<input required placeholder="1130001000" value={formData.telefone} onChange={(e) => setFormData({ ...formData, telefone: e.target.value.replace(/\D/g, '') })} /></label>
+                <label>Logradouro<input required value={formData.endereco.logradouro} onChange={(e) => setFormData({ ...formData, endereco: { ...formData.endereco, logradouro: e.target.value } })} /></label>
+                <label>Número<input required value={formData.endereco.numero} onChange={(e) => setFormData({ ...formData, endereco: { ...formData.endereco, numero: e.target.value } })} /></label>
+                <label>Bairro<input required value={formData.endereco.bairro} onChange={(e) => setFormData({ ...formData, endereco: { ...formData.endereco, bairro: e.target.value } })} /></label>
+                <label>Cidade<input required value={formData.endereco.cidade} onChange={(e) => setFormData({ ...formData, endereco: { ...formData.endereco, cidade: e.target.value } })} /></label>
+                <label>Estado<input required maxLength={2} value={formData.endereco.estado} onChange={(e) => setFormData({ ...formData, endereco: { ...formData.endereco, estado: e.target.value.toUpperCase() } })} /></label>
+                <label>CEP<input required value={formData.endereco.cep} onChange={(e) => setFormData({ ...formData, endereco: { ...formData.endereco, cep: e.target.value.replace(/\D/g, '') } })} /></label>
+              </>
+            ) : (
+              <label>
+                Descrição ou Observações
               <input
                 placeholder="Observações complementares"
                 onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
               />
-            </label>
+              </label>
+            )}
           </div>
+          {error ? <div className="error-box">{error}</div> : null}
 
           <footer>
             <button type="button" className="secondary-button" onClick={onClose}>Cancelar</button>

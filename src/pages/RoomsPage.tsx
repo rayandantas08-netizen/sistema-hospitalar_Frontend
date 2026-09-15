@@ -30,6 +30,11 @@ export default function RoomsPage() {
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
   const [filterType, setFilterType] = useState('Todas as categorias');
   const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [roomName, setRoomName] = useState('');
+  const [roomType, setRoomType] = useState('Consultório médico');
+  const [saving, setSaving] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   // Fetch real units and rooms from API
   useEffect(() => {
@@ -37,7 +42,7 @@ export default function RoomsPage() {
 
     setLoading(true);
     Promise.all([
-      apiFetch<HealthUnit[]>('/unidades', {}, token).catch(() => []),
+      apiFetch<HealthUnit[]>('/unidades-saude', {}, token).catch(() => []),
       apiFetch<Room[]>('/salas', {}, token).catch(() => []),
     ])
       .then(([dbUnits, dbRooms]) => {
@@ -76,7 +81,7 @@ export default function RoomsPage() {
         <button
           type="button"
           className="primary-button"
-          onClick={() => window.dispatchEvent(new CustomEvent('module-create'))}
+          onClick={() => { setCreateError(''); setShowCreate(true); }}
         >
           <i className="fas fa-plus" /> Nova Sala ou Unidade
         </button>
@@ -241,6 +246,36 @@ export default function RoomsPage() {
           <span>Clique em "Nova Sala ou Unidade" para cadastrar hospitais e UPAs no sistema.</span>
         </div>
       )}
+      {showCreate ? (
+        <div className="create-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowCreate(false); }}>
+          <section className="create-modal" role="dialog" aria-modal="true" aria-labelledby="room-create-title">
+            <header>
+              <div><p className="eyebrow">Novo cadastro no banco de dados</p><h3 id="room-create-title">Nova sala</h3></div>
+              <button type="button" className="modal-close" onClick={() => setShowCreate(false)} aria-label="Fechar"><i className="fas fa-times" /></button>
+            </header>
+            <form onSubmit={async (event) => {
+              event.preventDefault();
+              if (!token || !selectedUnitId) { setCreateError('Selecione uma unidade de saúde antes de cadastrar a sala.'); return; }
+              setSaving(true); setCreateError('');
+              try {
+                await apiFetch('/salas', { method: 'POST', body: JSON.stringify({ unidadeSaudeId: selectedUnitId, nome: roomName, tipo: roomType, status: 'LIVRE' }) }, token);
+                setShowCreate(false); setRoomName('');
+                const updated = await apiFetch<Room[]>('/salas', {}, token);
+                setRooms(Array.isArray(updated) ? updated : []);
+              } catch (error) {
+                setCreateError(error instanceof Error ? error.message : 'Não foi possível cadastrar a sala.');
+              } finally { setSaving(false); }
+            }}>
+              <div className="modal-field-grid">
+                <label>Nome da sala<input required minLength={2} value={roomName} onChange={(event) => setRoomName(event.target.value)} placeholder="Ex.: Consultório 07" /></label>
+                <label>Tipo<select value={roomType} onChange={(event) => setRoomType(event.target.value)}><option>Consultório médico</option><option>Emergência</option><option>Farmácia</option><option>Exames</option><option>Internação</option></select></label>
+              </div>
+              {createError ? <div className="error-box">{createError}</div> : null}
+              <footer><button type="button" className="secondary-button" onClick={() => setShowCreate(false)}>Cancelar</button><button type="submit" className="primary-button" disabled={saving}>{saving ? 'Salvando...' : 'Confirmar e Salvar'}</button></footer>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
